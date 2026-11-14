@@ -41,13 +41,9 @@ jobs:
           echo "$HOME/gradle-8.11.1/bin" >> "$GITHUB_PATH"
 
       - name: Verify Gradle
-        run: gradle --version
-
-      - name: Show Manifest File
         run: |
-          echo "========== ANDROID MANIFEST =========="
-          cat -n happ_guard/app/src/main/AndroidManifest.xml
-          echo "======================================"
+          gradle --version
+          java -version
 
       - name: Validate Android XML Files
         run: |
@@ -80,31 +76,40 @@ jobs:
       - name: Build Happ Guard APK
         shell: bash
         run: |
-          set +e
+          set -o pipefail
 
-          gradle -p happ_guard --no-daemon :app:compileDebugKotlin --stacktrace --info 2>&1 | tee kotlin-error.log
-
-          RESULT=${PIPESTATUS[0]}
+          gradle -p happ_guard --no-daemon :app:assembleDebug --stacktrace --info 2>&1 | tee build.log
 
           echo ""
-          echo "========== KOTLIN COMPILATION ERRORS =========="
-          grep -n -E "^e: |^w: " kotlin-error.log || true
-          echo "==============================================="
-
-          echo ""
-          echo "========== ERROR CONTEXT =========="
-          grep -n -B 5 -A 10 "^e: " kotlin-error.log || true
+          echo "========== KOTLIN ERRORS =========="
+          grep -n -E "^e: |^w: " build.log || true
           echo "==================================="
 
-          exit "$RESULT"
+          echo ""
+          echo "========== APK OUTPUT =========="
+          find happ_guard/app/build/outputs/apk -type f -name "*.apk" -print
+          echo "================================"
 
-      - name: Upload Kotlin Error Log
+      - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HappGuard-Kotlin-Error-Log
-          path: kotlin-error.log
+          name: HappGuard-Build-Log
+          path: build.log
           if-no-files-found: ignore
+
+      - name: Verify APK
+        if: success()
+        run: |
+          APK="happ_guard/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated!"
+            exit 1
+          fi
+
+          echo "APK successfully generated:"
+          ls -lh "$APK"
 
       - name: Upload APK
         if: success()
