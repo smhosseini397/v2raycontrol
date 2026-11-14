@@ -1,5 +1,3 @@
-
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HAPP GUARD</string>
     <string name="accessibility_description">HAPP GUARD برای تشخیص صفحه اتصال Happ و اجرای فرمان قطع اتصال در زمان انتقال مالکیت از دسترسی کمکی استفاده می‌کند.</string>
