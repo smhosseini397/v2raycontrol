@@ -193,7 +193,7 @@ class WatchService : Service() {
             throw IllegalStateException("Shared key is empty")
         }
 
-        val deviceId = getDeviceId()
+        val deviceId = getGuardDeviceId()
 
         val payload = JSONObject().apply {
             put("key", secret)
@@ -266,7 +266,7 @@ class WatchService : Service() {
         }
     }
 
-    private fun getDeviceId(): String {
+    private fun getGuardDeviceId(): String {
 
         val prefs = getSharedPreferences(
             "happ_guard",
