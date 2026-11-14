@@ -25,12 +25,16 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools'
           accept-android-sdk-licenses: true
 
-      - name: Install Android SDK components
+      - name: Check existing Android SDK
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -la "$ANDROID_HOME"
+          echo "Installed Android platforms:"
+          ls -la "$ANDROID_HOME/platforms" || true
+          echo "Installed build tools:"
+          ls -la "$ANDROID_HOME/build-tools" || true
 
       - name: Install Gradle 8.11.1
         run: |
@@ -38,14 +42,8 @@ jobs:
           unzip -q gradle.zip -d "$HOME"
           echo "$HOME/gradle-8.11.1/bin" >> "$GITHUB_PATH"
 
-      - name: Verify Gradle version
-        run: |
-          gradle --version
-
-      - name: Check project structure
-        run: |
-          ls -la happ_guard
-          ls -la happ_guard/app
+      - name: Verify Gradle
+        run: gradle --version
 
       - name: Build Happ Guard APK
         run: |
