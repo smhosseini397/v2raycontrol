@@ -1,7 +1,7 @@
 
-name: Build HappGuard APK
+name: Build Happ Guard APK
 
-on:
+'on':
   workflow_dispatch:
   push:
     branches:
@@ -22,9 +22,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Extract project ZIP
         run: |
           unzip -q HappGuard-Android-Source.zip -d source
@@ -38,7 +35,8 @@ jobs:
 
       - name: Install Android SDK components
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build APK
         run: |
