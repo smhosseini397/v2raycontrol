@@ -1,3 +1,4 @@
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
@@ -6,11 +7,21 @@ plugins {
 android {
     namespace 'com.farshekashan.happguard'
     compileSdk 35
+
     defaultConfig {
         applicationId 'com.farshekashan.happguard'
         minSdk 26
         targetSdk 33
         versionCode 1
         versionName '0.2-alpha'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    kotlinOptions {
+        jvmTarget = '21'
     }
 }
