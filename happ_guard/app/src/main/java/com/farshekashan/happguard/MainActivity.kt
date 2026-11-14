@@ -32,6 +32,15 @@ class MainActivity : Activity() {
         requestNotificationPermission()
         createScreen()
         loadSettings()
+        refreshStatus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        if (::statusText.isInitialized) {
+            refreshStatus()
+        }
     }
 
     private fun createScreen() {
@@ -78,7 +87,7 @@ class MainActivity : Activity() {
         val startButton = Button(this).apply {
             text = "فعال کردن سرویس"
             setOnClickListener {
-                if (saveSettings()) {
+                if (saveSettings(false)) {
                     startGuardService()
                 }
             }
@@ -87,7 +96,7 @@ class MainActivity : Activity() {
         val claimButton = Button(this).apply {
             text = "درخواست مالکیت"
             setOnClickListener {
-                if (saveSettings()) {
+                if (saveSettings(false)) {
                     startGuardService(WatchService.ACTION_CLAIM)
                 }
             }
@@ -96,7 +105,7 @@ class MainActivity : Activity() {
         val releaseButton = Button(this).apply {
             text = "آزاد کردن مالکیت"
             setOnClickListener {
-                if (saveSettings()) {
+                if (saveSettings(false)) {
                     startGuardService(WatchService.ACTION_RELEASE)
                 }
             }
@@ -105,9 +114,13 @@ class MainActivity : Activity() {
         val accessibilityButton = Button(this).apply {
             text = "فعال‌سازی دسترسی Accessibility"
             setOnClickListener {
-                startActivity(
-                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                )
+                try {
+                    startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    )
+                } catch (e: Exception) {
+                    showMessage("خطا در بازکردن تنظیمات دسترسی: ${e.message}")
+                }
             }
         }
 
@@ -138,7 +151,9 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun saveSettings(): Boolean {
+    private fun saveSettings(
+        showSuccessMessage: Boolean = true
+    ): Boolean {
 
         val endpoint = endpointInput.text
             .toString()
@@ -163,7 +178,11 @@ class MainActivity : Activity() {
             .putString("secret", secret)
             .apply()
 
-        showMessage("تنظیمات ذخیره شد")
+        if (showSuccessMessage) {
+            showMessage("تنظیمات ذخیره شد")
+            statusText.text = "وضعیت: تنظیمات ذخیره شدند"
+        }
+
         return true
     }
 
@@ -184,10 +203,38 @@ class MainActivity : Activity() {
                 intent
             )
 
-            statusText.text = "وضعیت: سرویس فعال است"
+            val message = when (action) {
+                WatchService.ACTION_CLAIM ->
+                    "درخواست مالکیت به سرویس ارسال شد"
+
+                WatchService.ACTION_RELEASE ->
+                    "درخواست آزادسازی به سرویس ارسال شد"
+
+                else ->
+                    "درخواست فعال‌سازی سرویس ارسال شد"
+            }
+
+            statusText.text = "وضعیت: $message"
+            showMessage(message)
 
         } catch (e: Exception) {
-            showMessage("خطا در اجرای سرویس: ${e.message}")
+
+            val error = "خطا در اجرای سرویس: ${e.message}"
+
+            statusText.text = error
+            showMessage(error)
+        }
+    }
+
+    private fun refreshStatus() {
+
+        val savedStatus = prefs.getString(
+            "service_status",
+            null
+        )
+
+        if (!savedStatus.isNullOrBlank()) {
+            statusText.text = "وضعیت: $savedStatus"
         }
     }
 
@@ -209,6 +256,7 @@ class MainActivity : Activity() {
     }
 
     private fun showMessage(message: String) {
+
         Toast.makeText(
             this,
             message,
