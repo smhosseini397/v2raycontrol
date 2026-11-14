@@ -4,128 +4,215 @@ package com.farshekashan.happguard
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.*
+import android.view.Gravity
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.core.content.ContextCompat
 
 class MainActivity : Activity() {
 
-    private lateinit var endpoint: EditText
-    private lateinit var secret: EditText
-    private lateinit var status: TextView
+    private lateinit var endpointInput: EditText
+    private lateinit var secretInput: EditText
+    private lateinit var statusText: TextView
+
+    private val prefs by lazy {
+        getSharedPreferences("happ_guard", MODE_PRIVATE)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val p = getSharedPreferences("cfg", MODE_PRIVATE)
+        requestNotificationPermission()
+        createScreen()
+        loadSettings()
+    }
 
-        val root = LinearLayout(this).apply {
+    private fun createScreen() {
+
+        val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(28, 36, 28, 24)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(30, 35, 30, 30)
         }
 
-        root.addView(TextView(this).apply {
-            text = "Happ Guard — نسخه آزمایشی\nروی هر دو گوشی نصب شود"
-            textSize = 22f
-        })
-
-        endpoint = EditText(this).apply {
-            hint = "آدرس کامل فایل guard.php"
-            setText(p.getString("endpoint", "https://farshkashanco.com/happguard/guard.php"))
-            setSingleLine(true)
+        val title = TextView(this).apply {
+            text = "HAPP GUARD"
+            textSize = 26f
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 20)
         }
 
-        secret = EditText(this).apply {
-            hint = "کلید مشترک دو گوشی"
-            setText(p.getString("secret", ""))
-            setSingleLine(true)
-        }
-
-        root.addView(endpoint)
-        root.addView(secret)
-
-        val save = Button(this).apply {
-            text = "ذخیره تنظیمات"
-            setOnClickListener {
-                p.edit()
-                    .putString("endpoint", endpoint.text.toString().trim())
-                    .putString("secret", secret.text.toString().trim())
-                    .apply()
-
-                status.text = "تنظیمات ذخیره شد"
-            }
-        }
-
-        root.addView(save)
-
-        root.addView(Button(this).apply {
-            text = "فعال‌سازی مجوز قطع HAPP"
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-        })
-
-        root.addView(Button(this).apply {
-            text = "شروع پایش این گوشی"
-            setOnClickListener {
-                p.edit()
-                    .putString("endpoint", endpoint.text.toString().trim())
-                    .putString("secret", secret.text.toString().trim())
-                    .apply()
-
-                if (Build.VERSION.SDK_INT >= 33) {
-                    requestPermissions(
-                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                        5
-                    )
-                }
-
-                startForegroundService(
-                    Intent(this@MainActivity, WatchService::class.java)
-                )
-
-                status.text = "پایش فعال شد؛ برای درخواست مالکیت از دکمه بعدی استفاده کن."
-            }
-        })
-
-        root.addView(Button(this).apply {
-            text = "این گوشی مالک اتصال شود"
-            setOnClickListener {
-                startForegroundService(
-                    Intent(this@MainActivity, WatchService::class.java)
-                        .setAction("CLAIM")
-                )
-
-                status.text = "درخواست مالکیت ارسال شد. گوشی قبلی باید آنلاین و پایش آن فعال باشد."
-            }
-        })
-
-        root.addView(Button(this).apply {
-            text = "آزاد کردن مالکیت"
-            setOnClickListener {
-                startForegroundService(
-                    Intent(this@MainActivity, WatchService::class.java)
-                        .setAction("RELEASE")
-                )
-
-                status.text = "درخواست آزادسازی ارسال شد"
-            }
-        })
-
-        status = TextView(this).apply {
+        statusText = TextView(this).apply {
             text = "وضعیت: آماده"
             textSize = 16f
+            gravity = Gravity.CENTER
+            setPadding(0, 12, 0, 20)
         }
 
-        root.addView(status)
+        endpointInput = EditText(this).apply {
+            hint = "آدرس سرور"
+            textSize = 14f
+            setSingleLine(true)
+        }
 
-        root.addView(TextView(this).apply {
-            text = "مهم: این نسخه آزمایشی است. قطع خودکار فقط وقتی قابل اتکاست که سرویس دسترس‌پذیری فعال باشد و دکمه Disconnect در HAPP برای آن قابل شناسایی باشد. ابتدا روی دو گوشی آزمایش شود."
-        })
+        secretInput = EditText(this).apply {
+            hint = "رمز مشترک دو گوشی"
+            textSize = 14f
+            setSingleLine(true)
+        }
 
-        setContentView(ScrollView(this).apply {
-            addView(root)
-        })
+        val saveButton = Button(this).apply {
+            text = "ذخیره تنظیمات"
+            setOnClickListener {
+                saveSettings()
+            }
+        }
+
+        val startButton = Button(this).apply {
+            text = "فعال کردن سرویس"
+            setOnClickListener {
+                if (saveSettings()) {
+                    startGuardService()
+                }
+            }
+        }
+
+        val claimButton = Button(this).apply {
+            text = "درخواست مالکیت"
+            setOnClickListener {
+                if (saveSettings()) {
+                    startGuardService(WatchService.ACTION_CLAIM)
+                }
+            }
+        }
+
+        val releaseButton = Button(this).apply {
+            text = "آزاد کردن مالکیت"
+            setOnClickListener {
+                if (saveSettings()) {
+                    startGuardService(WatchService.ACTION_RELEASE)
+                }
+            }
+        }
+
+        val accessibilityButton = Button(this).apply {
+            text = "فعال‌سازی دسترسی Accessibility"
+            setOnClickListener {
+                startActivity(
+                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                )
+            }
+        }
+
+        layout.addView(title)
+        layout.addView(statusText)
+        layout.addView(endpointInput)
+        layout.addView(secretInput)
+        layout.addView(saveButton)
+        layout.addView(startButton)
+        layout.addView(claimButton)
+        layout.addView(releaseButton)
+        layout.addView(accessibilityButton)
+
+        setContentView(layout)
+    }
+
+    private fun loadSettings() {
+
+        endpointInput.setText(
+            prefs.getString(
+                "endpoint",
+                "https://farshkashanco.com/happguard/guard.php"
+            )
+        )
+
+        secretInput.setText(
+            prefs.getString("secret", "")
+        )
+    }
+
+    private fun saveSettings(): Boolean {
+
+        val endpoint = endpointInput.text
+            .toString()
+            .trim()
+
+        val secret = secretInput.text
+            .toString()
+            .trim()
+
+        if (!endpoint.startsWith("https://")) {
+            showMessage("آدرس سرور باید با https شروع شود")
+            return false
+        }
+
+        if (secret.length < 16) {
+            showMessage("رمز مشترک باید حداقل ۱۶ نویسه باشد")
+            return false
+        }
+
+        prefs.edit()
+            .putString("endpoint", endpoint)
+            .putString("secret", secret)
+            .apply()
+
+        showMessage("تنظیمات ذخیره شد")
+        return true
+    }
+
+    private fun startGuardService(action: String? = null) {
+
+        val intent = Intent(
+            this,
+            WatchService::class.java
+        )
+
+        if (action != null) {
+            intent.action = action
+        }
+
+        try {
+            ContextCompat.startForegroundService(
+                this,
+                intent
+            )
+
+            statusText.text = "وضعیت: سرویس فعال است"
+
+        } catch (e: Exception) {
+            showMessage("خطا در اجرای سرویس: ${e.message}")
+        }
+    }
+
+    private fun requestNotificationPermission() {
+
+        if (Build.VERSION.SDK_INT >= 33) {
+
+            if (checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+
+                requestPermissions(
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    100
+                )
+            }
+        }
+    }
+
+    private fun showMessage(message: String) {
+        Toast.makeText(
+            this,
+            message,
+            Toast.LENGTH_LONG
+        ).show()
     }
 }
