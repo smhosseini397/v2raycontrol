@@ -1,7 +1,7 @@
 
 name: Build Happ Guard APK
 
-'on':
+on:
   workflow_dispatch:
   push:
     branches:
@@ -30,20 +30,24 @@ jobs:
 
       - name: Install Android SDK components
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Install Gradle
+      - name: Install Gradle 8.11.1
         run: |
-          curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
+          curl -L https://services.gradle.org/distributions/gradle-8.11.1-bin.zip -o gradle.zip
           unzip -q gradle.zip -d "$HOME"
-          echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
+          echo "$HOME/gradle-8.11.1/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Gradle version
+        run: |
+          gradle --version
 
       - name: Check project structure
         run: |
           ls -la happ_guard
           ls -la happ_guard/app
 
-      - name: Build APK
+      - name: Build Happ Guard APK
         run: |
           gradle -p happ_guard --no-daemon assembleDebug
 
