@@ -78,8 +78,33 @@ jobs:
           PY
 
       - name: Build Happ Guard APK
+        shell: bash
         run: |
-          gradle -p happ_guard --no-daemon assembleDebug --stacktrace --info
+          set +e
+
+          gradle -p happ_guard --no-daemon :app:compileDebugKotlin --stacktrace --info 2>&1 | tee kotlin-error.log
+
+          RESULT=${PIPESTATUS[0]}
+
+          echo ""
+          echo "========== KOTLIN COMPILATION ERRORS =========="
+          grep -n -E "^e: |^w: " kotlin-error.log || true
+          echo "==============================================="
+
+          echo ""
+          echo "========== ERROR CONTEXT =========="
+          grep -n -B 5 -A 10 "^e: " kotlin-error.log || true
+          echo "==================================="
+
+          exit "$RESULT"
+
+      - name: Upload Kotlin Error Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HappGuard-Kotlin-Error-Log
+          path: kotlin-error.log
+          if-no-files-found: ignore
 
       - name: Upload APK
         if: success()
