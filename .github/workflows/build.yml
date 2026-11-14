@@ -31,13 +31,8 @@ jobs:
       - name: Verify Android SDK
         run: |
           echo "Checking Android SDK..."
-          echo "Installed platforms:"
           ls -la "$ANDROID_HOME/platforms"
-          echo "Installed build tools:"
           ls -la "$ANDROID_HOME/build-tools"
-
-          test -d "$ANDROID_HOME/platforms/android-35"
-          test -d "$ANDROID_HOME/build-tools/35.0.0"
 
       - name: Install Gradle 8.11.1
         run: |
@@ -46,21 +41,48 @@ jobs:
           echo "$HOME/gradle-8.11.1/bin" >> "$GITHUB_PATH"
 
       - name: Verify Gradle
-        run: |
-          gradle --version
+        run: gradle --version
 
-      - name: Verify project files
+      - name: Show Manifest File
         run: |
-          echo "Checking Happ Guard files..."
-          ls -la happ_guard
-          ls -la happ_guard/app/src/main
-          ls -la happ_guard/app/src/main/res/xml
+          echo "========== ANDROID MANIFEST =========="
+          cat -n happ_guard/app/src/main/AndroidManifest.xml
+          echo "======================================"
+
+      - name: Validate Android XML Files
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          import os
+          import sys
+
+          root = "happ_guard/app/src/main"
+          failed = False
+
+          for folder, dirs, files in os.walk(root):
+              for filename in files:
+                  if filename.endswith(".xml"):
+                      path = os.path.join(folder, filename)
+                      try:
+                          ET.parse(path)
+                          print("XML OK:", path)
+                      except ET.ParseError as e:
+                          print("XML ERROR:", path)
+                          print("DETAIL:", e)
+                          failed = True
+
+          if failed:
+              sys.exit(1)
+
+          print("All XML files passed validation.")
+          PY
 
       - name: Build Happ Guard APK
         run: |
-          gradle -p happ_guard --no-daemon assembleDebug
+          gradle -p happ_guard --no-daemon assembleDebug --stacktrace --info
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: HappGuard-APK
