@@ -1,34 +1,52 @@
-name: Build Happ Guard APK
+
+name: Build HappGuard APK
+
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Set up Java
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - name: Install Android SDK
+
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Extract project ZIP
+        run: |
+          unzip -q HappGuard-Android-Source.zip -d source
+          ls -la source/happ_guard
+
       - name: Install Gradle
         run: |
-          curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /tmp
-          echo "/tmp/gradle-8.9/bin" >> "$GITHUB_PATH"
-      - name: Install Android build components
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
+          unzip -q gradle.zip -d "$HOME"
+          echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build APK
+        run: |
+          gradle -p source/happ_guard --no-daemon assembleDebug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: happ-guard-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: HappGuard-APK
+          path: source/happ_guard/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
