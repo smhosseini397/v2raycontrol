@@ -5,9 +5,9 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.util.Log
 
 class HappAccessibility : AccessibilityService() {
 
@@ -70,9 +70,7 @@ class HappAccessibility : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        val packageName = event.packageName?.toString() ?: return
-
-        if (packageName != TARGET_PACKAGE) return
+        if (event.packageName?.toString() != TARGET_PACKAGE) return
 
         if (disconnecting) {
             scanCurrentWindow()
@@ -82,7 +80,6 @@ class HappAccessibility : AccessibilityService() {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val now = System.currentTimeMillis()
 
-            // جلوگیری از ارسال مکرر CLAIM در هر تغییر صفحه
             if (now - lastClaimTime >= 15000L) {
                 lastClaimTime = now
                 sendAutomaticClaim()
@@ -119,12 +116,27 @@ class HappAccessibility : AccessibilityService() {
         clickAttempted = false
         disconnectCallback = callback
 
-        // حداکثر زمان انتظار برای مشاهده وضعیت قطع
         disconnectTimeout = Runnable {
             finishDisconnect(false)
         }
 
-        handler.postDelayed(disconnectTimeout!!, 15000L)
+        handler.postDelayed(disconnectTimeout!!, 20000L)
+
+        // اگر Happ در پس‌زمینه باشد، صفحه آن را باز می‌کنیم.
+        try {
+            val launchIntent =
+                packageManager.getLaunchIntentForPackage(TARGET_PACKAGE)
+
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(launchIntent)
+            } else {
+                Log.e(TAG, "Happ launch activity not found")
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Cannot open Happ", e)
+        }
 
         scanTask = object : Runnable {
             override fun run() {
@@ -135,7 +147,7 @@ class HappAccessibility : AccessibilityService() {
             }
         }
 
-        handler.post(scanTask!!)
+        handler.postDelayed(scanTask!!, 700L)
     }
 
     private fun scanCurrentWindow() {
@@ -173,11 +185,11 @@ class HappAccessibility : AccessibilityService() {
 
             val combined = "$text $description"
 
-            val matched = disconnectWords.any {
-                combined.contains(it.lowercase())
+            if (!disconnectWords.any {
+                    combined.contains(it.lowercase())
+                }) {
+                continue
             }
-
-            if (!matched) continue
 
             var clickable: AccessibilityNodeInfo? = node
 
