@@ -22,11 +22,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Extract project ZIP
-        run: |
-          unzip -q HappGuard-Android-Source.zip -d source
-          ls -la source/happ_guard
-
       - name: Install Gradle
         run: |
           curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
@@ -38,13 +33,18 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Check project structure
+        run: |
+          ls -la happ_guard
+          ls -la happ_guard/app
+
       - name: Build APK
         run: |
-          gradle -p source/happ_guard --no-daemon assembleDebug
+          gradle -p happ_guard --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HappGuard-APK
-          path: source/happ_guard/app/build/outputs/apk/debug/app-debug.apk
+          path: happ_guard/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
